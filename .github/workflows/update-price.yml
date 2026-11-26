@@ -3,8 +3,8 @@ name: Update ANTAM buyback price
 on:
   workflow_dispatch:
   schedule:
-    # GitHub Actions cron is UTC: 10:30 and 13:30 WIB, every day.
-    - cron: "30 3,6 * * *"
+    # GitHub Actions cron is UTC: hourly 08:00–18:00 WIB, weekdays.
+    - cron: "0 1-11 * * 1-5"
 
 permissions:
   contents: write

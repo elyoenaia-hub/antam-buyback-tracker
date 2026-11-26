@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -16,7 +15,6 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 HISTORY_FILE = ROOT / "history.csv"
-API_URL = "https://logam-mulia-api.iamutaki.workers.dev/api/prices/logammulia"
 FALLBACK_CSV_URL = "https://gold.hafidznrg.my.id/data/csv/logammulia-antam.csv"
 TIMEOUT_SECONDS = 20
 
@@ -34,34 +32,6 @@ def as_number(value: object) -> int | None:
         return None
 
 
-def fetch_api() -> dict[str, object]:
-    payload = json.loads(download(API_URL).decode("utf-8"))
-    records = payload.get("data", []) if isinstance(payload, dict) else []
-    if isinstance(records, dict):
-        records = [records]
-    if not isinstance(records, list):
-        raise ValueError("Format respons API tidak dikenali")
-
-    candidates = []
-    for record in records:
-        if not isinstance(record, dict):
-            continue
-        provider = str(record.get("source", "")).lower()
-        brand = str(record.get("materialType", "")).lower()
-        weight = as_number(record.get("weight"))
-        buyback = as_number(record.get("buybackPrice"))
-        if provider == "logammulia" and "antam" in brand and weight == 1 and buyback:
-            candidates.append({
-                "price_date": str(record.get("recordedDate") or ""),
-                "source": "Logam Mulia (via API komunitas)",
-                "buyback": buyback,
-                "sell": as_number(record.get("sellPrice")),
-            })
-    if not candidates:
-        raise ValueError("API belum mengembalikan harga buyback Antam 1 gram")
-    return candidates[0]
-
-
 def fetch_csv_fallback() -> dict[str, object]:
     text = download(FALLBACK_CSV_URL).decode("utf-8-sig")
     rows = list(csv.DictReader(io.StringIO(text)))
@@ -76,6 +46,7 @@ def fetch_csv_fallback() -> dict[str, object]:
                 "source": "Momen Emas (arsip CSV)",
                 "buyback": buyback,
                 "sell": as_number(row.get("sell_price")),
+                "source_updated_at": str(row.get("source_updated_at") or ""),
             })
     if not candidates:
         raise ValueError("CSV cadangan belum punya data buyback Antam 1 gram")
@@ -83,13 +54,10 @@ def fetch_csv_fallback() -> dict[str, object]:
 
 
 def get_price() -> dict[str, object]:
-    errors = []
-    for fetcher in (fetch_api, fetch_csv_fallback):
-        try:
-            return fetcher()
-        except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
-            errors.append(f"{fetcher.__name__}: {exc}")
-    raise RuntimeError("Semua sumber gagal. " + " | ".join(errors))
+    try:
+        return fetch_csv_fallback()
+    except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+        raise RuntimeError(f"Sumber arsip harga tidak bisa diakses: {exc}") from exc
 
 
 def record(price: dict[str, object]) -> None:
@@ -101,15 +69,31 @@ def record(price: dict[str, object]) -> None:
         "price_date": price_date,
         "freshness": freshness,
         "source": price["source"],
+        "source_updated_at_wib": price.get("source_updated_at") or "",
         "buyback_rp_per_gram": price["buyback"],
         "sell_rp_per_gram": price.get("sell") or "",
     }
-    write_header = not HISTORY_FILE.exists() or HISTORY_FILE.stat().st_size == 0
-    with HISTORY_FILE.open("a", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=row.keys())
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
+    fieldnames = list(row)
+    records = []
+    if HISTORY_FILE.exists() and HISTORY_FILE.stat().st_size:
+        with HISTORY_FILE.open(newline="", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            records = list(reader)
+            fieldnames = list(reader.fieldnames or [])
+        for field in row:
+            if field not in fieldnames:
+                fieldnames.append(field)
+
+    # Keep one point per date/price and refresh its check time on scheduled runs.
+    if records and all(records[-1].get(key, "") == str(row[key]) for key in ("price_date", "source", "buyback_rp_per_gram", "sell_rp_per_gram")):
+        records[-1].update(row)
+    else:
+        records.append(row)
+
+    with HISTORY_FILE.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)
     print(f"Buyback Antam 1 g: Rp{int(price['buyback']):,}".replace(",", "."))
     print(f"Tanggal data: {price_date or 'tidak dicantumkan'}")
     if freshness != "tanggal_sesuai":

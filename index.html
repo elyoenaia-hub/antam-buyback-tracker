@@ -57,8 +57,9 @@
           <div class="chart-axis"><span id="axis-start">—</span><span id="axis-end">—</span></div>
         </div>
         <div class="actions-row">
-          <a class="primary-button" href="https://github.com/elyoenaia-hub/antam-buyback-tracker/actions/workflows/update-price.yml" target="_blank" rel="noreferrer">Perbarui harga <span aria-hidden="true">↗</span></a>
-          <span class="update-hint">Membuka GitHub Actions untuk mengambil data terbaru.</span>
+          <button class="primary-button" id="refresh-button" type="button">Segarkan tampilan <span aria-hidden="true">↻</span></button>
+          <span class="update-hint" id="refresh-status" aria-live="polite">Harga dicek otomatis tiap 10 menit.</span>
+          <a class="workflow-link" href="https://github.com/elyoenaia-hub/antam-buyback-tracker/actions/workflows/update-price.yml" target="_blank" rel="noreferrer">Jalankan pengambilan harga manual di GitHub ↗</a>
         </div>
       </section>
 

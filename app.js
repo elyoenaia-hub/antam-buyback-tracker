@@ -1,4 +1,5 @@
 const csvUrl = new URL("history.csv", window.location.href);
+const liveCsvUrl = "https://gold.hafidznrg.my.id/data/csv/logammulia-antam.csv";
 const currency = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 const dateFormat = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" });
 const dateTimeFormat = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Asia/Jakarta" });
@@ -71,29 +72,72 @@ function drawChart(records) {
   document.querySelector("#change-label").textContent = points.length < 2 ? "1 catatan" : `${delta >= 0 ? "+" : "−"}${currency.format(Math.abs(delta))} sejak awal`;
 }
 
-async function loadPrices() {
+let loadingPrices = false;
+let latestRecords = [];
+async function fetchLivePrice() {
+  const response = await fetch(`${liveCsvUrl}?v=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error("Sumber harga sedang tidak tersedia");
+  const records = parseCSV(await response.text()).filter((row) => row.brand?.toLowerCase() === "antam" && Number(row.weight_g) === 1 && Number(row.buyback_price) > 0);
+  records.sort((a, b) => `${a.date}${a.source_updated_at}`.localeCompare(`${b.date}${b.source_updated_at}`));
+  const row = records.at(-1);
+  if (!row) throw new Error("Belum ada harga Antam 1 gram di sumber live");
+  const checkedAt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Jakarta", dateStyle: "short", timeStyle: "medium", hourCycle: "h23" }).format(new Date()).replace(",", "");
+  return {
+    fetched_at_wib: checkedAt,
+    price_date: row.date,
+    source: "Momen Emas (arsip CSV)",
+    source_updated_at_wib: row.source_updated_at || "",
+    buyback_rp_per_gram: row.buyback_price,
+    sell_rp_per_gram: row.sell_price || "",
+  };
+}
+
+async function loadPrices({ manual = false } = {}) {
+  if (loadingPrices) return;
+  loadingPrices = true;
+  const button = document.querySelector("#refresh-button");
+  const status = document.querySelector("#refresh-status");
+  if (manual) { button.disabled = true; button.querySelector("span").textContent = "…"; status.textContent = "Memuat data terbaru…"; }
   try {
-    const response = await fetch(`${csvUrl}?v=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Riwayat belum bisa dimuat");
-    const records = parseCSV(await response.text()).filter((row) => Number(row.buyback_rp_per_gram) > 0);
+    const [historyResult, liveResult] = await Promise.allSettled([
+      fetch(`${csvUrl}?v=${Date.now()}`, { cache: "no-store" }).then((response) => { if (!response.ok) throw new Error("Riwayat belum bisa dimuat"); return response.text(); }),
+      fetchLivePrice(),
+    ]);
+    const records = historyResult.status === "fulfilled" ? parseCSV(historyResult.value).filter((row) => Number(row.buyback_rp_per_gram) > 0) : [];
     records.sort((a, b) => `${a.fetched_at_wib}`.localeCompare(`${b.fetched_at_wib}`));
-    const latest = records.at(-1);
+    const live = liveResult.status === "fulfilled" ? liveResult.value : null;
+    const latest = live || records.at(-1);
+    const chartMap = new Map(records.map((record) => [`${record.price_date}:${record.buyback_rp_per_gram}`, record]));
+    if (live) chartMap.set(`${live.price_date}:${live.buyback_rp_per_gram}`, live);
+    latestRecords = [...chartMap.values()].sort((a, b) => `${a.price_date}${a.fetched_at_wib}`.localeCompare(`${b.price_date}${b.fetched_at_wib}`));
     if (!latest) { document.querySelector("#freshness span").textContent = "MENUNGGU DATA"; drawChart([]); return; }
     document.querySelector("#price").textContent = currency.format(Number(latest.buyback_rp_per_gram));
     document.querySelector("#price-date").textContent = fmtDate(latest.price_date);
     const fetched = latest.fetched_at_wib ? new Date(`${latest.fetched_at_wib.replace(" ", "T")}+07:00`) : null;
     document.querySelector("#fetched-at").textContent = fetched && !Number.isNaN(fetched.getTime()) ? dateTimeFormat.format(fetched) + " WIB" : "Tidak tersedia";
     document.querySelector("#source").textContent = latest.source || "Tidak tersedia";
+    const sourceUpdated = latest.source_updated_at_wib ? new Date(latest.source_updated_at_wib) : null;
+    if (sourceUpdated && !Number.isNaN(sourceUpdated.getTime())) {
+      document.querySelector("#source").textContent += ` · ${dateTimeFormat.format(sourceUpdated)} WIB`;
+    }
     setFreshness(latest.price_date);
-    drawChart(records);
+    drawChart(latestRecords);
+    status.textContent = live ? `Harga live dicek ${dateTimeFormat.format(new Date())} WIB · otomatis tiap 10 menit.` : "Sumber live belum tersedia; menampilkan catatan terakhir.";
   } catch (error) {
     document.querySelector("#freshness").classList.add("stale");
     document.querySelector("#freshness span").textContent = "GAGAL MEMUAT";
     document.querySelector("#price-date").textContent = "Coba muat ulang halaman";
+    status.textContent = "Data belum bisa dimuat. Coba lagi beberapa saat.";
     drawChart([]);
+  } finally {
+    loadingPrices = false;
+    button.disabled = false;
+    button.querySelector("span").textContent = "↻";
   }
 }
 
 loadPrices();
-window.addEventListener("resize", () => loadPrices());
+document.querySelector("#refresh-button").addEventListener("click", () => loadPrices({ manual: true }));
+window.setInterval(() => loadPrices(), 10 * 60 * 1000);
+window.addEventListener("resize", () => drawChart(latestRecords));
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("./sw.js").catch(() => {});
