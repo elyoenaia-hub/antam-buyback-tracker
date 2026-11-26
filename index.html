@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10130f" />
+    <meta name="description" content="Pantau harga buyback emas Antam dan riwayatnya." />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Antam Watch — Harga Buyback</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Antam Watch, beranda">
+        <span class="brand-mark">A</span>
+        <span>ANTAM<span class="brand-light">WATCH</span></span>
+      </a>
+      <span class="live-label"><i></i> PEMANTAU HARGA</span>
+    </header>
+
+    <main class="page-shell">
+      <section class="intro">
+        <div>
+          <p class="eyebrow">LOGAM MULIA · INDONESIA</p>
+          <h1>Harga buyback,<br /><em>tanpa tebak-tebakan.</em></h1>
+          <p class="intro-copy">Pantau nilai buyback Antam per gram dan lihat pergerakannya dari hari ke hari.</p>
+        </div>
+        <div class="gold-orb" aria-hidden="true"><span>Au</span><small>999.9</small></div>
+      </section>
+
+      <section class="price-card" aria-labelledby="price-title">
+        <div class="card-topline">
+          <div class="card-label"><span class="gold-dot"></span><span id="price-title">BUYBACK ANTAM · 1 GRAM</span></div>
+          <span class="freshness" id="freshness"><i></i><span>MEMUAT</span></span>
+        </div>
+        <div class="price-line">
+          <p class="price-value" id="price">—</p>
+          <span class="unit">/ gram</span>
+        </div>
+        <div class="price-footer">
+          <div><span class="muted">Tanggal data</span><strong id="price-date">Memuat…</strong></div>
+          <div><span class="muted">Diambil</span><strong id="fetched-at">—</strong></div>
+          <div><span class="muted">Sumber</span><strong id="source">—</strong></div>
+        </div>
+        <p class="stale-note" id="stale-note" hidden>Data ini bukan pembaruan hari ini. Cek sumber resmi sebelum bertransaksi.</p>
+      </section>
+
+      <section class="history-section" aria-labelledby="history-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">PERGERAKAN HARGA</p><h2 id="history-title">Riwayat buyback</h2></div>
+          <span class="range-label">SEMUA DATA TERCATAT</span>
+        </div>
+        <div class="chart-card">
+          <div class="chart-meta"><span><i class="legend-dot"></i>Buyback Antam 1 g</span><span id="change-label">—</span></div>
+          <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Grafik riwayat harga buyback Antam"></canvas><div class="empty-state" id="empty-state">Riwayat harga akan muncul setelah data pertama tercatat.</div></div>
+          <div class="chart-axis"><span id="axis-start">—</span><span id="axis-end">—</span></div>
+        </div>
+        <div class="actions-row">
+          <a class="primary-button" href="https://github.com/elyoenaia-hub/antam-buyback-tracker/actions/workflows/update-price.yml" target="_blank" rel="noreferrer">Perbarui harga <span aria-hidden="true">↗</span></a>
+          <span class="update-hint">Membuka GitHub Actions untuk mengambil data terbaru.</span>
+        </div>
+      </section>
+
+      <footer class="footer"><span>ANTAM WATCH</span><span>Data harga bersifat informatif. Tarif transaksi final mengikuti ANTAM.</span></footer>
+    </main>
+    <script src="app.js" defer></script>
+  </body>
+</html>

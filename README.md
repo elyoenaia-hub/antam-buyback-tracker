@@ -28,6 +28,12 @@ Hasil terbaru tampil di terminal dan ditambahkan sebagai baris baru ke `history.
 
 Workflow juga berjalan otomatis setiap hari sekitar pukul **10.30 dan 13.30 WIB**. GitHub dapat menjalankan jadwal beberapa menit terlambat.
 
+## Web app
+
+Folder ini juga berisi dashboard web responsif dan bisa dipasang di layar utama ponsel: `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `sw.js`, dan `icon.svg`. Dashboard membaca `history.csv` dari folder yang sama.
+
+Tombol **Perbarui harga** membuka workflow GitHub Actions. Setelah dijalankan, workflow memperbarui `history.csv`; muat ulang dashboard untuk melihat catatan terbaru.
+
 ## Kolom riwayat
 
 - `fetched_at_wib`: waktu skrip mengambil data.
